@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PA-SCAN-BT Live Lab</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">⟲</div>
+    <div>
+      <h1>PA-SCAN-BT Live Lab</h1>
+      <p>Priority-Aware Elevator Scheduling with Burst-Throttling, for a hard disk and for an LLM server</p>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="disk">Disk Lab</button>
+    <button class="tab" data-tab="llm">LLM Serving Lab</button>
+    <button class="tab" data-tab="copilot">AI Co-pilot</button>
+    <button class="tab" data-tab="about">How it works</button>
+  </nav>
+  <div class="theme-switcher" role="group" aria-label="Theme selector">
+    <button type="button" class="theme-btn active" data-set-theme="ice" title="Ice Circuit">ICE</button>
+    <button type="button" class="theme-btn" data-set-theme="violet" title="Ultraviolet">VIOLET</button>
+    <button type="button" class="theme-btn" data-set-theme="toxic" title="Toxic">TOXIC</button>
+  </div>
+  <div id="copilot-badge" class="badge" title="Which engine the AI co-pilot uses">co-pilot: …</div>
+</header>
+
+<main>
+<!-- ======================================================== DISK LAB -->
+<section id="tab-disk" class="tabpane active">
+  <aside class="controls">
+    <h2>Workload</h2>
+    <label>Scenario
+      <select id="d-scenario">
+        <option value="demo">Demo: 14 requests (viva walkthrough)</option>
+        <option value="mixed">Mixed: 130 req/s</option>
+        <option value="burst" selected>Burst: backup process hogging the arm</option>
+        <option value="heavy">Heavy: 160 req/s</option>
+        <option value="custom" disabled>Custom (from AI Co-pilot)</option>
+      </select>
+    </label>
+    <label>Random seed <input id="d-seed" type="number" min="1" max="999" value="1"></label>
+    <div id="d-custom-note" class="note hidden"></div>
+
+    <h2>Algorithms <small>(up to 4)</small></h2>
+    <div id="d-algos" class="checks"></div>
+
+    <h2>PA-SCAN-BT knobs</h2>
+    <label>Burst threshold K <output id="d-k-out">4</output>
+      <input id="d-k" type="range" min="1" max="20" value="4"></label>
+    <label>HIGH deadline (ms) <output id="d-deadline-out">40</output>
+      <input id="d-deadline" type="range" min="10" max="200" step="1" value="40"></label>
+    <label>Aging limit (ms) <output id="d-aging-out">150</output>
+      <input id="d-aging" type="range" min="50" max="1000" step="1" value="150"></label>
+    <button id="d-apply" class="primary wide">Apply &amp; restart</button>
+
+    <h2>Inject an event <small>(live)</small></h2>
+    <div class="inject">
+      <button id="d-inj-burst" class="inj burst" title="A backup process fires 40 LOW requests into cylinders 60-90">💥 Backup burst</button>
+      <button id="d-inj-fault" class="inj fault" title="A process touches 3 pages that are not in RAM: 3 HIGH requests">⚡ Page faults</button>
+    </div>
+    <p class="hint">Events are added at the current time. Earlier decisions never change, because no scheduler can see a request before it arrives.</p>
+  </aside>
+
+  <div class="stage">
+    <div class="player">
+      <button id="d-play" class="primary">▶ Play</button>
+      <button id="d-restart">⟲ Restart</button>
+      <label class="speed">Speed
+        <select id="d-speed">
+          <option value="0.01">0.01×</option>
+          <option value="0.02">0.02×</option>
+          <option value="0.05">0.05×</option>
+          <option value="0.1" selected>0.1×</option>
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1">1× (real time)</option>
+        </select></label>
+      <div class="clock"><span id="d-clock">t = 0 ms</span></div>
+      <input id="d-scrub" class="scrub" type="range" min="0" max="1000" value="0" aria-label="time">
+    </div>
+    <div class="legend">
+      <span><i class="dot high"></i>HIGH</span><span><i class="dot med"></i>MEDIUM</span>
+      <span><i class="dot low"></i>LOW</span><span><i class="dot hog"></i>bursty process</span>
+      <span><i class="bar wait"></i>a HIGH request waiting (turns red after the deadline)</span>
+      <span><i class="bar head"></i>arm path (time runs downward)</span>
+    </div>
+    <div id="d-lanes" class="lanes"></div>
+
+    <div class="row2">
+      <div class="card">
+        <h3>Live scoreboard <small>(green = best)</small></h3>
+        <table id="d-table" class="score"></table>
+      </div>
+      <div class="card">
+        <h3>Decision log <small>(rule firings; click one to explain it)</small></h3>
+        <ul id="d-log" class="log"></ul>
+        <div id="d-explain" class="explain hidden"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================== LLM LAB -->
+<section id="tab-llm" class="tabpane">
+  <aside class="controls">
+    <h2>Workload</h2>
+    <label>Scenario
+      <select id="l-scenario">
+        <option value="flood" selected>Flood: a tenant dumps 30 BATCH jobs every 10 s</option>
+        <option value="heavy">Heavy: 9.5 req/s (near capacity)</option>
+        <option value="mixed">Mixed: 8 req/s (light)</option>
+      </select>
+    </label>
+    <label>Random seed <input id="l-seed" type="number" min="1" max="999" value="1"></label>
+
+    <h2>Policies <small>(up to 4)</small></h2>
+    <div id="l-algos" class="checks"></div>
+
+    <h2>PA-SWEEP-BT knobs</h2>
+    <label>Burst threshold K <output id="l-k-out">3</output>
+      <input id="l-k" type="range" min="1" max="12" value="3"></label>
+    <label>INTERACTIVE TTFT deadline (ms) <output id="l-deadline-out">300</output>
+      <input id="l-deadline" type="range" min="100" max="1000" step="50" value="300"></label>
+    <button id="l-apply" class="primary wide">Apply &amp; restart</button>
+
+    <h2>Inject an event <small>(live)</small></h2>
+    <div class="inject">
+      <button id="l-inj-flood" class="inj burst" title="A bulk-import tenant sends 30 BATCH requests sharing one prefix">🌊 Flood</button>
+      <button id="l-inj-chat" class="inj fault" title="5 users open the chat app at once (INTERACTIVE)">💬 Chat users</button>
+    </div>
+    <p class="hint">Mapping: cylinder → prompt prefix · seek → prefix-cache miss · process → tenant ·
+      waiting time → time to first token (TTFT).</p>
+  </aside>
+
+  <div class="stage">
+    <div class="player">
+      <button id="l-play" class="primary">▶ Play</button>
+      <button id="l-restart">⟲ Restart</button>
+      <label class="speed">Speed
+        <select id="l-speed">
+          <option value="0.1">0.1×</option>
+          <option value="0.25">0.25×</option>
+          <option value="0.5" selected>0.5×</option>
+          <option value="1">1× (real time)</option>
+          <option value="2">2×</option>
+        </select></label>
+      <div class="clock"><span id="l-clock">t = 0.0 s</span></div>
+      <input id="l-scrub" class="scrub" type="range" min="0" max="1000" value="0" aria-label="time">
+    </div>
+    <div class="legend">
+      <span><i class="dot high"></i>INTERACTIVE</span><span><i class="dot med"></i>STANDARD</span>
+      <span><i class="dot low"></i>BATCH</span><span><i class="dot hog"></i>flooding tenant</span>
+      <span>Left: the GPU batch (32 slots; the fill shows progress). Right: waiting requests by prefix id, ▲ = sweep head</span>
+    </div>
+    <div id="l-lanes" class="lanes"></div>
+    <div class="row2">
+      <div class="card">
+        <h3>Live scoreboard <small>(green = best)</small></h3>
+        <table id="l-table" class="score"></table>
+      </div>
+      <div class="card">
+        <h3>Decision log <small>(guard, preemption, throttling)</small></h3>
+        <ul id="l-log" class="log"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================== CO-PILOT -->
+<section id="tab-copilot" class="tabpane">
+  <div class="copilot">
+    <div class="card big">
+      <h3>1 · Describe a workload in plain English</h3>
+      <p class="muted">The co-pilot turns your description into processes, priorities, rates and disk regions.
+        Every value it returns is checked and clamped before the simulator uses it.</p>
+      <textarea id="c-text" rows="3" placeholder="e.g. A busy database server while the nightly backup runs every 800 ms"></textarea>
+      <div class="chips" id="c-examples"></div>
+      <div class="actions">
+        <label class="toggle"><input type="checkbox" id="c-use-llm" checked> Use Claude when available</label>
+        <button id="c-generate" class="primary">Generate workload</button>
+      </div>
+      <div id="c-scenario-out"></div>
+    </div>
+
+    <div class="card big">
+      <h3>2 · Verified auto-tuner <small>(the LLM proposes, the simulator decides)</small></h3>
+      <p class="muted">Claude reads measurements of the workload and proposes 3 settings for K, the HIGH deadline and
+        aging. A classical grid search competes with it. <b>Every candidate is then re-measured on random workloads
+        nobody tuned on</b>, and it is only accepted if it beats the default settings there.</p>
+      <div class="actions">
+        <label>Workload <span id="c-tune-workload" class="pill">burst (built-in)</span></label>
+        <label>Objective <select id="c-objective"></select></label>
+        <button id="c-tune" class="primary">Tune</button>
+      </div>
+      <div id="c-tune-out"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================== ABOUT -->
+<section id="tab-about" class="tabpane">
+  <div class="about">
+    <div class="card">
+      <h3>The problem</h3>
+      <p>SCAN (the elevator) minimises arm movement but treats every request the same. So a page fault (the CPU is
+        blocked waiting for it) can sit behind 40 requests from a backup job that happen to lie in the arm's path.</p>
+      <h3>PA-SCAN-BT = LOOK + three rules</h3>
+      <ol>
+        <li><b>Priority guard.</b> Before each normal step: "would serving the next request in sweep order make any HIGH
+          request miss its deadline?" If so, go to that HIGH request now.</li>
+        <li><b>Burst-throttling.</b> Per sweep, a LOW process gets at most K requests and a MEDIUM process 2K. The rest wait
+          for a later sweep, so one process can no longer hold the arm hostage.</li>
+        <li><b>Aging.</b> After waiting longer than the aging limit, a request can no longer be throttled. Nothing starves.</li>
+      </ol>
+      <p>Switch all three rules off and you get exactly LOOK. That is how the ablation study isolates each rule.</p>
+    </div>
+    <div class="card">
+      <h3>The same idea on an LLM server</h3>
+      <table class="map">
+        <tr><th>Disk</th><th>LLM serving (vLLM-style continuous batching)</th></tr>
+        <tr><td>cylinder</td><td>prompt prefix id (shared system prompt / document)</td></tr>
+        <tr><td>seek cost</td><td>prefix-cache miss: the shared prompt must be recomputed</td></tr>
+        <tr><td>process</td><td>tenant (an app calling the API)</td></tr>
+        <tr><td>HIGH / MEDIUM / LOW</td><td>INTERACTIVE / STANDARD / BATCH</td></tr>
+        <tr><td>waiting time</td><td>time to first token (TTFT)</td></tr>
+        <tr><td>arm jumps to an urgent request</td><td>admit the urgent request, preempting a BATCH job if needed</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>The AI co-pilot: an LLM working for the OS</h3>
+      <p>The lab also runs the other direction: an LLM helps a human operate the scheduler. It builds workloads from
+        English, explains individual decisions, and suggests tuning values. It is <b>never trusted blindly</b>.
+        Its specs are clamped to safe ranges, and its tuning ideas must beat the defaults on unseen workloads before
+        they are accepted. With no internet it falls back to offline engines (keyword parser, rule templates, grid search).</p>
+      <h3>A 5-minute demo</h3>
+      <ol>
+        <li>Disk Lab → <b>Demo</b> at 0.02×: watch the HIGH request at cylinder 35 wait for SCAN, while PA-SCAN-BT turns back for it.</li>
+        <li><b>Burst</b> scenario at 0.1×: press <b>💥 Backup burst</b> and watch the red wait bars grow under SCAN only.</li>
+        <li>Click a "PRIORITY GUARD" line in the decision log to have that decision explained.</li>
+        <li>LLM Lab → <b>Flood</b>: press <b>💬 Chat users</b> during a flood and compare TTFT and the SLO %.</li>
+        <li>AI Co-pilot: type a workload, run it, then <b>Tune</b> and point out the accepted/rejected verdicts.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<script src="common.js"></script>
+<script src="disk.js"></script>
+<script src="llm.js"></script>
+<script src="copilot.js"></script>
+</body>
+</html>
