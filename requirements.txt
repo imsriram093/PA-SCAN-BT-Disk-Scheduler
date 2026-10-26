@@ -1,0 +1,3 @@
+matplotlib>=3.5
+# Optional: lets the live lab's AI co-pilot use Claude (it works offline without it).
+#   pip install anthropic      and set the ANTHROPIC_API_KEY environment variable
