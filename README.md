@@ -365,4 +365,4 @@ The test suite validates baseline implementations directly against the standard 
 ---
 
 ## 🛡️ License
-Developed for academic research and educational evaluation under the **MIT License**. Open for educational reproduction and experimental benchmarking.
+Developed for academic research and educational evaluation under the [**MIT License**](LICENSE). Open for educational reproduction and experimental benchmarking.
